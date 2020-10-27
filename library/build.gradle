@@ -17,7 +17,7 @@ class LibraryInfo {
     static Integer versionCode = versionMajor * 10_000 + versionMinor * 1_000 + versionPatch * 100
 }
 
-def libraryVersion = '4.4.2'
+def libraryVersion = '4.4.3'
 def packageName = 'com.squalk.android'
 
 static def getLibraryInfo() {
