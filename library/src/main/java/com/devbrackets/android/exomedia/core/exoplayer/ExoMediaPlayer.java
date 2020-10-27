@@ -59,13 +59,13 @@ import com.google.android.exoplayer2.analytics.AnalyticsListener;
 import com.google.android.exoplayer2.audio.AudioAttributes;
 import com.google.android.exoplayer2.audio.AudioRendererEventListener;
 import com.google.android.exoplayer2.decoder.DecoderCounters;
-import com.google.android.exoplayer2.drm.DefaultDrmSessionEventListener;
 import com.google.android.exoplayer2.drm.DefaultDrmSessionManager;
 import com.google.android.exoplayer2.drm.DrmSessionManager;
 import com.google.android.exoplayer2.drm.ExoMediaDrm;
 import com.google.android.exoplayer2.drm.FrameworkMediaCrypto;
 import com.google.android.exoplayer2.drm.FrameworkMediaDrm;
 import com.google.android.exoplayer2.drm.MediaDrmCallback;
+import com.google.android.exoplayer2.drm.MediaDrmCallbackException;
 import com.google.android.exoplayer2.metadata.Metadata;
 import com.google.android.exoplayer2.metadata.MetadataOutput;
 import com.google.android.exoplayer2.source.MediaSource;
@@ -161,12 +161,12 @@ public class ExoMediaPlayer extends Player.DefaultEventListener {
 
         ComponentListener componentListener = new ComponentListener();
         RendererProvider rendererProvider = new RendererProvider(context, mainHandler, componentListener, componentListener, componentListener, componentListener);
-        DrmSessionManager<FrameworkMediaCrypto> drmSessionManager = generateDrmSessionManager();
+        DrmSessionManager drmSessionManager = generateDrmSessionManager();
         rendererProvider.setDrmSessionManager(drmSessionManager);
 
         renderers = rendererProvider.generate();
 
-        adaptiveTrackSelectionFactory = new AdaptiveTrackSelection.Factory(bandwidthMeter);
+        adaptiveTrackSelectionFactory = new AdaptiveTrackSelection.Factory();
         trackSelector = new DefaultTrackSelector(adaptiveTrackSelectionFactory);
 
         LoadControl loadControl = ExoMedia.Data.loadControl != null ? ExoMedia.Data.loadControl : new DefaultLoadControl();
@@ -211,7 +211,7 @@ public class ExoMediaPlayer extends Player.DefaultEventListener {
     public void setMediaSource(@Nullable MediaSource source) {
         if (this.mediaSource != null) {
             this.mediaSource.removeEventListener(analyticsCollector);
-            analyticsCollector.resetForNewMediaSource();
+//            analyticsCollector.resetForNewMediaSource();
         }
         if (source != null) {
             source.addEventListener(mainHandler, analyticsCollector);
@@ -903,7 +903,7 @@ public class ExoMediaPlayer extends Player.DefaultEventListener {
      * @return The {@link DrmSessionManager} to use or <code>null</code>
      */
     @Nullable
-    protected DrmSessionManager<FrameworkMediaCrypto> generateDrmSessionManager() {
+    protected DrmSessionManager generateDrmSessionManager() {
         // DRM is only supported on API 18 + in the ExoPlayer
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN_MR2) {
             return null;
@@ -913,9 +913,7 @@ public class ExoMediaPlayer extends Player.DefaultEventListener {
         UUID uuid = C.WIDEVINE_UUID;
 
         try {
-            DefaultDrmSessionManager<FrameworkMediaCrypto> sessionManager = new DefaultDrmSessionManager<>(uuid, FrameworkMediaDrm.newInstance(uuid), new DelegatedMediaDrmCallback(), null);
-            sessionManager.addListener(mainHandler, capabilitiesListener);
-
+            DefaultDrmSessionManager sessionManager = new DefaultDrmSessionManager(uuid, FrameworkMediaDrm.newInstance(uuid), new DelegatedMediaDrmCallback(), null);
             return sessionManager;
         } catch (Exception e) {
             Log.d(TAG, "Unable to create a DrmSessionManager due to an exception", e);
@@ -923,9 +921,9 @@ public class ExoMediaPlayer extends Player.DefaultEventListener {
         }
     }
 
-    protected void setupDamSessionManagerAnalytics(DrmSessionManager<FrameworkMediaCrypto> drmSessionManager) {
+    protected void setupDamSessionManagerAnalytics(DrmSessionManager drmSessionManager) {
         if (drmSessionManager instanceof DefaultDrmSessionManager) {
-            ((DefaultDrmSessionManager) drmSessionManager).addListener(mainHandler, analyticsCollector);
+//            ((DefaultDrmSessionManager) drmSessionManager).addListener(mainHandler, analyticsCollector);
         }
     }
 
@@ -1034,17 +1032,17 @@ public class ExoMediaPlayer extends Player.DefaultEventListener {
      */
     private class DelegatedMediaDrmCallback implements MediaDrmCallback {
         @Override
-        public byte[] executeProvisionRequest(UUID uuid, ExoMediaDrm.ProvisionRequest request) throws Exception {
+        public byte[] executeProvisionRequest(UUID uuid, ExoMediaDrm.ProvisionRequest request) throws MediaDrmCallbackException {
             return drmCallback != null ? drmCallback.executeProvisionRequest(uuid, request) : new byte[0];
         }
 
         @Override
-        public byte[] executeKeyRequest(UUID uuid, ExoMediaDrm.KeyRequest request) throws Exception {
+        public byte[] executeKeyRequest(UUID uuid, ExoMediaDrm.KeyRequest request) throws MediaDrmCallbackException {
             return drmCallback != null ? drmCallback.executeKeyRequest(uuid, request) : new byte[0];
         }
     }
 
-    private class CapabilitiesListener implements DefaultDrmSessionEventListener {
+    private class CapabilitiesListener implements DefaultDrmSessionEventListenerCustom {
         @Override
         public void onDrmKeysLoaded() {
             // Purposefully left blank
@@ -1101,13 +1099,13 @@ public class ExoMediaPlayer extends Player.DefaultEventListener {
             analyticsCollector.onAudioInputFormatChanged(format);
         }
 
-        @Override
-        public void onAudioSinkUnderrun(int bufferSize, long bufferSizeMs, long elapsedSinceLastFeedMs) {
-            if (internalErrorListener != null) {
-                internalErrorListener.onAudioSinkUnderrun(bufferSize, bufferSizeMs, elapsedSinceLastFeedMs);
-            }
-            analyticsCollector.onAudioSinkUnderrun(bufferSize, bufferSizeMs, elapsedSinceLastFeedMs);
-        }
+//        @Override
+//        public void onAudioSinkUnderrun(int bufferSize, long bufferSizeMs, long elapsedSinceLastFeedMs) {
+//            if (internalErrorListener != null) {
+//                internalErrorListener.onAudioSinkUnderrun(bufferSize, bufferSizeMs, elapsedSinceLastFeedMs);
+//            }
+//            analyticsCollector.onAudioSinkUnderrun(bufferSize, bufferSizeMs, elapsedSinceLastFeedMs);
+//        }
 
         @Override
         public void onVideoEnabled(DecoderCounters counters) {
