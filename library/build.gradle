@@ -1,0 +1,118 @@
+apply plugin: 'com.android.library'
+apply plugin: 'com.jfrog.artifactory'
+apply plugin: 'maven-publish'
+
+/**
+ * Holds the information associated with the library needed for the
+ * bintray plugin to publish the artifact
+ */
+class LibraryInfo {
+    static Integer versionMajor = 4
+    static Integer versionMinor = 4
+    static Integer versionPatch = 2
+
+    static String artifactId = 'ExoMediaCustom'
+    static String groupId = 'com.squalk.android'
+    static String versionName = "${versionMajor}.${versionMinor}.${versionPatch}"
+    static Integer versionCode = versionMajor * 10_000 + versionMinor * 1_000 + versionPatch * 100
+}
+
+def libraryVersion = '4.4.2'
+def packageName = 'com.squalk.android'
+
+static def getLibraryInfo() {
+    return new LibraryInfo()
+}
+
+dependencies {
+    implementation "com.android.support:support-media-compat:$rootProject.ext.supportLibVersion"
+    implementation "com.android.support:appcompat-v7:$rootProject.ext.supportLibVersion"
+
+    // ExoPlayer
+    api "com.google.android.exoplayer:exoplayer-core:$rootProject.ext.exoPlayerVersion"
+    api "com.google.android.exoplayer:exoplayer-dash:$rootProject.ext.exoPlayerVersion"
+    api "com.google.android.exoplayer:exoplayer-hls:$rootProject.ext.exoPlayerVersion"
+    api "com.google.android.exoplayer:exoplayer-smoothstreaming:$rootProject.ext.exoPlayerVersion"
+}
+
+android {
+    compileSdkVersion 28
+
+    defaultConfig {
+        minSdkVersion 14
+        targetSdkVersion 28
+
+        versionCode getLibraryInfo().versionCode
+        versionName getLibraryInfo().versionName
+
+        vectorDrawables.useSupportLibrary = true
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    lintOptions {
+        abortOnError false
+    }
+
+    libraryVariants.all{ variant ->
+        variant.outputs.all { output ->
+            if (outputFileName.endsWith('-release.aar')){
+                outputFileName = new File("${project.getName()}-release_${libraryVersion}.aar")
+            }else if (outputFileName.endsWith('-debug.aar')){
+                outputFileName = new File("${project.getName()}-debug_${libraryVersion}.aar")
+            }
+        }
+
+    }
+}
+
+publishing {
+    publications {
+        aar(MavenPublication) {
+            groupId packageName
+            version = libraryVersion
+            artifactId "ExoMediaCustom"
+
+            // Tell maven to prepare the generated "*.aar" file for publishing
+            artifact("$buildDir/outputs/aar/${project.getName()}-release_${version}.aar")
+
+            pom.withXml {
+                def dependencies = asNode().appendNode('dependencies')
+                configurations.getByName("releaseCompileClasspath").getResolvedConfiguration().getFirstLevelModuleDependencies().each {
+                    def dependency = dependencies.appendNode('dependency')
+                    dependency.appendNode('groupId', it.moduleGroup)
+                    dependency.appendNode('artifactId', it.moduleName)
+                    dependency.appendNode('version', it.moduleVersion)
+                }
+            }
+        }
+    }
+}
+
+artifactory {
+    contextUrl = 'https://git-01-bell.squalk.zone:443/artifactory'
+    publish {
+        repository {
+            // The Artifactory repository key to publish to
+            repoKey = 'squalksdk'
+
+            username = "mislav.b"
+            password = "YbT69HaOFkWJeuO0aOW1yM"
+        }
+        defaults {
+            // Tell the Artifactory Plugin which artifacts should be published to Artifactory.
+            publications('aar')
+            publishArtifacts = true
+
+            // Properties to be attached to the published artifacts.
+            properties = ['qa.level': 'basic', 'dev.team': 'core']
+            // Publish generated POM files to Artifactory (true by default)
+            publishPom = true
+        }
+    }
+}
+
+apply from: 'gradle/publish.gradle'
